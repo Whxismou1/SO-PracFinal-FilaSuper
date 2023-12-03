@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <time.h>
 #include <signal.h>
+#include "ListInterface.h"
+
 /*Libreria usada para facilitar el uso con booleanos
 Se tiene en cuenta que relamente C lo guarda como 1(True) y 0 (False)*/
 #include <stdbool.h>
@@ -18,18 +20,18 @@ const char *getBoolean(bool value);
 /**
  * Struct usada para los cajeros
  */
-struct Cajero
-{
-    int id;
+// struct Cajero
+// {
+//     int id;
 
-    /* True = libre|False = ocupado*/
-    bool status;
+//     /* True = libre|False = ocupado*/
+//     bool status;
 
-    int numClientesAtendidos;
+//     int numClientesAtendidos;
 
-    /* True(1) = libre|False(0)= ocupado*/
-    bool isResting;
-};
+//     /* True(1) = libre|False(0)= ocupado*/
+//     bool isResting;
+// };
 
 /*Variables globales de los fichero*/
 FILE *logFile;
@@ -37,6 +39,7 @@ const char *logFileName = "../logFiles/registroCaja.log";
 
 int main(void)
 {
+    
     /*Si existe el fichero se elimina*/
     remove(logFileName);
 
@@ -49,6 +52,26 @@ int main(void)
     printf("Is resting: %s\n", getBoolean(cajero1.isResting));
 
     writeLogMessage("ID123", "Este es un mensaje de prueba.");
+
+    /**
+     * Uso basico de la lista
+    */
+
+   //Creacion de la lista
+    struct List* cajeroLista = createList();
+
+    struct Cajero cajero2 = {2, false, 3, true};
+
+    //Adicion de los elementos a la lista
+    append(cajeroLista, &cajero1);
+    append(cajeroLista, &cajero2);
+
+    //impresion lista actual
+    printf("Lista actual cajeros:\n");
+    printList(cajeroLista);
+    
+    
+
     return 0;
 }
 
