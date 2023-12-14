@@ -17,36 +17,20 @@ void exitApp(int status);
 /*Funcion encargada de devolver true o false de version numerica a string*/
 const char *getBoolean(bool value);
 
-/**
- * Struct usada para los cajeros
- */
-// struct Cajero
-// {
-//     int id;
-
-//     /* True = libre|False = ocupado*/
-//     bool status;
-
-//     int numClientesAtendidos;
-
-//     /* True(1) = libre|False(0)= ocupado*/
-//     bool isResting;
-// };
-
 /*Variables globales de los fichero*/
 FILE *logFile;
 const char *logFileName = "../logFiles/registroCaja.log";
 
 int main(void)
 {
-    
+
     /*Si existe el fichero se elimina*/
     remove(logFileName);
 
     /*Ejemplo basico de uso de la struct*/
     struct Cajero cajero1 = {1, true, 0, false};
 
-    printf("Id cajero: %d\n", cajero1.id);
+    printf("Id cajero: %d\n", cajero1.cajeroID);
     printf("Status cajero: %s\n", getBoolean(cajero1.status));
     printf("Num clientes atendidos: %d\n", cajero1.numClientesAtendidos);
     printf("Is resting: %s\n", getBoolean(cajero1.isResting));
@@ -55,22 +39,21 @@ int main(void)
 
     /**
      * Uso basico de la lista
-    */
+     */
 
-   //Creacion de la lista
-    struct List* cajeroLista = createList();
+    // Creacion de la lista
+    struct ListCajero *cajeroLista = createListCajero();
 
     struct Cajero cajero2 = {2, false, 3, true};
 
-    //Adicion de los elementos a la lista
-    append(cajeroLista, &cajero1);
-    append(cajeroLista, &cajero2);
+    // Adicion de los elementos a la lista
+    appendCajero(cajeroLista, &cajero1);
+    appendCajero(cajeroLista, &cajero2);
+    appendCajero(cajeroLista, &cajero2);
 
-    //impresion lista actual
+    // impresion lista actual
     printf("Lista actual cajeros:\n");
-    printList(cajeroLista);
-    
-    
+    printListCajero(cajeroLista);
 
     return 0;
 }

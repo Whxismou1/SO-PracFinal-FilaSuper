@@ -1,32 +1,50 @@
 #ifndef LIST_H
 #define LIST_H
-
 #include <stdbool.h>
 
-/**
- * Queda ver que poner aqui, si cliente o cajero
- */
 struct Cajero
 {
-    int id;
+    int cajeroID;
     bool status;
     int numClientesAtendidos;
     bool isResting;
 };
 
-struct Node
+struct NodeCajeros
 {
     struct Cajero *data;
-    struct Node *next;
+    struct NodeCajeros *next;
 };
 
-struct List
+struct ListCajero
 {
-    struct Node *head;
+    struct NodeCajeros *head;
+    int numClients;
 };
 
-struct List *createList();
-void append(struct List *list, struct Cajero *cajero);
-void printList(struct List *list);
+struct Client
+{
+    int clientID;
+    bool finishedShopping;
+
+    bool isProcessed;
+};
+
+struct NodeClient
+{
+    struct Client *data;
+    struct NodeClient *next;
+};
+
+struct ListClient
+{
+    struct NodeClient *head;
+    int numClients;
+};
+
+struct ListCajero *createListCajero();
+void appendCajero(struct ListCajero *list, struct Cajero *cajero);
+void printListCajero(struct ListCajero *list);
 const char *getBoolean(bool value);
+int getSizeListCajeros(struct ListCajero *list);
 #endif
