@@ -1,8 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <signal.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 #include "ListInterface.h"
+#define NUMCLIENTSDEFAULT 20
+#define NUMCASHIERSDEFAULT 3
 
 /*Libreria usada para facilitar el uso con booleanos
 Se tiene en cuenta que relamente C lo guarda como 1(True) y 0 (False)*/
@@ -20,42 +27,64 @@ const char *getBoolean(bool value);
 /*Variables globales de los fichero*/
 FILE *logFile;
 const char *logFileName = "../logFiles/registroCaja.log";
+pthread_mutex_t mutex_LineCustomers;
+pthread_mutex_t mutex_Logger;
+pthread_mutex_t mutex_CustomersOnLine;
 
-int main(void)
+int numCustomers, numCashiers;
+
+int main(int argc, char *argv[])
 {
 
-    /*Si existe el fichero se elimina*/
-    remove(logFileName);
+    if (argc == 3)
+    {
+        numCustomers = atoi(argv[1]);
+        numCashiers = atoi(argv[2]);
 
-    /*Ejemplo basico de uso de la struct*/
-    struct Cajero cajero1 = {1, true, 0, false};
+        if (numCustomers <= 0 || numCashiers <= 0)
+        {
+            numCashiers = NUMCASHIERSDEFAULT;
+            numCustomers = NUMCLIENTSDEFAULT;
+        }
+    }
+    else
+    {
+        numCustomers = NUMCLIENTSDEFAULT;
+        numCashiers = NUMCASHIERSDEFAULT;
+    }
 
-    printf("Id cajero: %d\n", cajero1.cajeroID);
-    printf("Status cajero: %s\n", getBoolean(cajero1.status));
-    printf("Num clientes atendidos: %d\n", cajero1.numClientesAtendidos);
-    printf("Is resting: %s\n", getBoolean(cajero1.isResting));
+    // /*Si existe el fichero se elimina*/
+    // remove(logFileName);
 
-    writeLogMessage("ID123", "Este es un mensaje de prueba.");
+    // /*Ejemplo basico de uso de la struct*/
+    // struct Cajero cajero1 = {1, true, 0, false};
+
+    // printf("Id cajero: %d\n", cajero1.cajeroID);
+    // printf("Status cajero: %s\n", getBoolean(cajero1.status));
+    // printf("Num clientes atendidos: %d\n", cajero1.numClientesAtendidos);
+    // printf("Is resting: %s\n", getBoolean(cajero1.isResting));
+
+    // writeLogMessage("ID123", "Este es un mensaje de prueba.");
 
     /**
      * Uso basico de la lista
      */
 
     // Creacion de la lista
-    struct ListCajero *cajeroLista = createListCajero();
+    // struct ListCajero *cajeroLista = createListCajero();
 
-    struct Cajero cajero2 = {2, false, 3, true};
+    // struct Cajero cajero2 = {2, false, 3, true};
 
-    // Adicion de los elementos a la lista
-    appendCajero(cajeroLista, &cajero1);
-    appendCajero(cajeroLista, &cajero2);
-    appendCajero(cajeroLista, &cajero2);
+    // // Adicion de los elementos a la lista
+    // appendCajero(cajeroLista, &cajero1);
+    // appendCajero(cajeroLista, &cajero2);
+    // appendCajero(cajeroLista, &cajero2);
 
-    // impresion lista actual
-    printf("Lista actual cajeros:\n");
-    printListCajero(cajeroLista);
+    // // impresion lista actual
+    // printf("Lista actual cajeros:\n");
+    // printListCajero(cajeroLista);
 
-    return 0;
+    // return 0;
 }
 
 void writeLogMessage(char *id, char *msg)
