@@ -21,6 +21,11 @@ void writeLogMessage(char *id, char *msg);
 /*Funcion usada para salir de la app en funcion del codigo de estado*/
 void exitApp(int status);
 
+//manejadora de los clientes
+void manejadoraClientes(int signal);
+
+
+
 /*Funcion encargada de devolver true o false de version numerica a string*/
 const char *getBoolean(bool value);
 
@@ -33,25 +38,37 @@ pthread_mutex_t mutex_CustomersOnLine;
 
 int numCustomers, numCashiers;
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]){
 
-    if (argc == 3)
-    {
+    if (argc == 3){
         numCustomers = atoi(argv[1]);
         numCashiers = atoi(argv[2]);
 
-        if (numCustomers <= 0 || numCashiers <= 0)
-        {
+        if (numCustomers <= 0 || numCashiers <= 0){
             numCashiers = NUMCASHIERSDEFAULT;
             numCustomers = NUMCLIENTSDEFAULT;
         }
-    }
-    else
-    {
+    }else{
         numCustomers = NUMCLIENTSDEFAULT;
         numCashiers = NUMCASHIERSDEFAULT;
     }
+
+    //estructura sigaction
+    struct sigaction ss;
+
+    //declaramos los campos del sigaction
+    sigemptyset(&ss.sa_mask);
+    ss.sa_flags=0;
+    ss.sa_handler=manejadoraClientes;//le asignamos su manejadora
+
+
+    //mensaje de error si falla el sigaction
+    if(-1==sigaction(SIGUSR1, &ss, NULL)){
+        perror("Tecnico sigaction");
+        return 1;
+    }
+
+
 
     // /*Si existe el fichero se elimina*/
     // remove(logFileName);
@@ -84,11 +101,15 @@ int main(int argc, char *argv[])
     // printf("Lista actual cajeros:\n");
     // printListCajero(cajeroLista);
 
+
+    //pausamos su ejecución a la espera de que ocurra alguna acción
+    pause();
+
+
     // return 0;
 }
 
-void writeLogMessage(char *id, char *msg)
-{
+void writeLogMessage(char *id, char *msg){
     // Calculamos la hora actual
     time_t now = time(0);
     struct tm *tlocal = localtime(&now);
@@ -100,12 +121,17 @@ void writeLogMessage(char *id, char *msg)
     fclose(logFile);
 }
 
-void exitApp(int status)
-{
+void exitApp(int status){
     exit(status);
 }
 
-const char *getBoolean(bool value)
-{
+const char *getBoolean(bool value){
     return value ? "true" : "false";
+}
+
+void manejadoraClientes(int signal){
+    printf("Señal de creación de cliente recibida\n");
+    pid_t cliente=fork();
+    printf("Cliente con id %d creado\n", cliente);
+
 }
