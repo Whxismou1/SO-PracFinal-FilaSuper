@@ -21,10 +21,20 @@ void writeLogMessage(char *id, char *msg);
 /*Funcion usada para salir de la app en funcion del codigo de estado*/
 void exitApp(int status);
 
-//manejadora de los clientes
+// manejadora de los clientes
 void manejadoraClientes(int signal);
 
+void *AccionesCashier(void *arg);
+void *AccionesReponedor(void *arg);
+void *AccionesCliente(void *arg);
 
+void inicializeCashiers();
+void inicializeClientes();
+
+int getClientPosByID(int IDClient);
+
+void removeClient(int IDClient);
+int calculaAleatorio(int n, int m);
 
 /*Funcion encargada de devolver true o false de version numerica a string*/
 const char *getBoolean(bool value);
@@ -35,42 +45,71 @@ const char *logFileName = "../logFiles/registroCaja.log";
 pthread_mutex_t mutex_LineCustomers;
 pthread_mutex_t mutex_Logger;
 pthread_mutex_t mutex_CustomersOnLine;
+/*DECLARAMOS LAS VARIABLES CONDICION*/
+pthread_cond_t condicionInicia;
+pthread_cond_t condicionAcaba;
+/*Threads*/
+pthread_t cajero;
+pthread_t reponedor;
+pthread_t cliente;
 
 int numCustomers, numCashiers;
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
 
-    if (argc == 3){
+    if (argc == 3)
+    {
         numCustomers = atoi(argv[1]);
         numCashiers = atoi(argv[2]);
 
-        if (numCustomers <= 0 || numCashiers <= 0){
+        if (numCustomers <= 0 || numCashiers <= 0)
+        {
             numCashiers = NUMCASHIERSDEFAULT;
             numCustomers = NUMCLIENTSDEFAULT;
         }
-    }else{
+    }
+    else
+    {
         numCustomers = NUMCLIENTSDEFAULT;
         numCashiers = NUMCASHIERSDEFAULT;
     }
 
-    //estructura sigaction
+    // estructura sigaction
     struct sigaction ss;
 
-    //declaramos los campos del sigaction
+    // declaramos los campos del sigaction
     sigemptyset(&ss.sa_mask);
-    ss.sa_flags=0;
-    ss.sa_handler=manejadoraClientes;//le asignamos su manejadora
+    ss.sa_flags = 0;
+    ss.sa_handler = manejadoraClientes; // le asignamos su manejadora
 
-
-    //mensaje de error si falla el sigaction
-    if(-1==sigaction(SIGUSR1, &ss, NULL)){
+    // mensaje de error si falla el sigaction
+    if (-1 == sigaction(SIGUSR1, &ss, NULL))
+    {
         perror("Tecnico sigaction");
         return 1;
     }
 
+    /* Inicializamos los mutex comprobando si hay error*/
+    /* Inicializamos los mutex comprobando si hay error*/
+    if (pthread_mutex_init(&mutex_Logger, NULL) != 0)
+        exit(-1);
 
+    if (pthread_mutex_init(&mutex_CustomersOnLine, NULL) != 0)
+        exit(-1);
 
-    // /*Si existe el fichero se elimina*/
+    if (pthread_mutex_init(&mutex_LineCustomers, NULL) != 0)
+        exit(-1);
+
+    /*Variables condicion*/
+    if (pthread_cond_init(&condicionInicia, NULL) != 0)
+        exit(-1);
+    if (pthread_cond_init(&condicionAcaba, NULL) != 0)
+        exit(-1);
+
+    /* contador d
+
+        // /*Si existe el fichero se elimina*/
     // remove(logFileName);
 
     // /*Ejemplo basico de uso de la struct*/
@@ -101,15 +140,14 @@ int main(int argc, char *argv[]){
     // printf("Lista actual cajeros:\n");
     // printListCajero(cajeroLista);
 
-
-    //pausamos su ejecución a la espera de que ocurra alguna acción
+    // pausamos su ejecución a la espera de que ocurra alguna acción
     pause();
-
 
     // return 0;
 }
 
-void writeLogMessage(char *id, char *msg){
+void writeLogMessage(char *id, char *msg)
+{
     // Calculamos la hora actual
     time_t now = time(0);
     struct tm *tlocal = localtime(&now);
@@ -121,17 +159,26 @@ void writeLogMessage(char *id, char *msg){
     fclose(logFile);
 }
 
-void exitApp(int status){
+void exitApp(int status)
+{
     exit(status);
 }
 
-const char *getBoolean(bool value){
+const char *getBoolean(bool value)
+{
     return value ? "true" : "false";
 }
 
-void manejadoraClientes(int signal){
+void manejadoraClientes(int signal)
+{
     printf("Señal de creación de cliente recibida\n");
-    pid_t cliente=fork();
+    pid_t cliente = fork();
     printf("Cliente con id %d creado\n", cliente);
+}
 
+int calculaAleatorio(int n, int m)
+{
+    // los numeros aleatorios dependerán del pid
+    srand(time(NULL));
+    return rand() % (m - n + 1) + n;
 }
