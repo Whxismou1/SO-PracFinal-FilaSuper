@@ -8,146 +8,184 @@
 #include <time.h>
 #include <unistd.h>
 #include "ListInterface.h"
-#define NUMCLIENTSDEFAULT 20
-#define NUMCASHIERSDEFAULT 3
+
+#define NUM_CLIENTES_DEFAULT 20
+#define NUM_CAJEROS_DEFAULT 3
 
 /*Libreria usada para facilitar el uso con booleanos
 Se tiene en cuenta que relamente C lo guarda como 1(True) y 0 (False)*/
 #include <stdbool.h>
 
-/*Funcion que escribe en el log*/
-void writeLogMessage(char *id, char *msg);
+// /*Funcion usada para salir de la app en funcion del codigo de estado*/
+// void exitApp(int status);
 
-/*Funcion usada para salir de la app en funcion del codigo de estado*/
-void exitApp(int status);
+// // manejadora de los clientes
+// void manejadoraClientes(int signal);
 
-// manejadora de los clientes
-void manejadoraClientes(int signal);
+// void *AccionesCashier(void *arg);
+// void *AccionesReponedor(void *arg);
+// void *AccionesCliente(void *arg);
 
-void *AccionesCashier(void *arg);
-void *AccionesReponedor(void *arg);
-void *AccionesCliente(void *arg);
+// void inicializeCashiers();
+// void inicializeClientes();
 
-void inicializeCashiers();
-void inicializeClientes();
+// int getClientPosByID(int IDClient);
 
-int getClientPosByID(int IDClient);
+// void removeClient(int IDClient);
 
-void removeClient(int IDClient);
-int calculaAleatorio(int n, int m);
-
-/*Funcion encargada de devolver true o false de version numerica a string*/
-const char *getBoolean(bool value);
+// /*Funcion encargada de devolver true o false de version numerica a string*/
+// const char *getBoolean(bool value);
 
 /*Variables globales de los fichero*/
 FILE *logFile;
 const char *logFileName = "../logFiles/registroCaja.log";
-pthread_mutex_t mutex_LineCustomers;
-pthread_mutex_t mutex_Logger;
-pthread_mutex_t mutex_CustomersOnLine;
-/*DECLARAMOS LAS VARIABLES CONDICION*/
-pthread_cond_t condicionInicia;
-pthread_cond_t condicionAcaba;
-/*Threads*/
-pthread_t cajero;
-pthread_t reponedor;
-pthread_t cliente;
 
-int numCustomers, numCashiers;
+/*Mutex para el control del acceso a recursos compartidos*/
+// Mutex cola clientes
+pthread_mutex_t mutex_ColaClientes;
+// Mutex logger
+pthread_mutex_t mutex_Logger;
+
+// count numero de clientes
+int numClientes;
+
+// Estructura cliente
+struct clientes
+{
+    int idCliente;
+    int estaSiendoAtendido;
+    int finalizado;
+    pthread_t hiloCliente;
+};
+
+// Lista de clientes
+struct clientes listaClientes[20];
+
+/* Función que realiza las acciones de los vehículos */
+void *accionesClientes(void *IDCliente);
+
+int numCajeros;
+
+/* Lista de 3 cajeros */
+struct cajeros
+{
+    int idCajero;
+    int ocupado;
+    int clientesAtendidos;
+    /* Hilo que ejecuta cada cajero */
+    pthread_t hiloCajero;
+};
+
+struct cajeros cajerosN[3];
+
+int capacidadColaClientes;
+
+/* Función que realiza las acciones de los cajeros */
+void *accionesCajero(void *idCajero);
+void nuevoCliente(int sig);
+void exitApp();
+/*Funcion que escribe en el log*/
+void writeLogMessage(char *id, char *msg);
+int randomNumber(int min, int max);
+int getPosCliente(int idClienteABuscar);
 
 int main(int argc, char *argv[])
 {
 
-    if (argc == 3)
+    switch (argc)
     {
-        numCustomers = atoi(argv[1]);
-        numCashiers = atoi(argv[2]);
-
-        if (numCustomers <= 0 || numCashiers <= 0)
+    // En caso de que pasemos dos argumentos, por ejemplo ./PracticaFinal 40
+    case 2:
+        capacidadColaClientes = atoi(argv[1]);
+        numCajeros = NUM_CAJEROS_DEFAULT;
+        if (capacidadColaClientes <= 0 || numCajeros <= 0)
         {
-            numCashiers = NUMCASHIERSDEFAULT;
-            numCustomers = NUMCLIENTSDEFAULT;
+            numCajeros = NUM_CAJEROS_DEFAULT;
+            capacidadColaClientes = NUM_CLIENTES_DEFAULT;
         }
+
+        break;
+    // En caso de que pasemos tres argumentos, por ejemplo ./Pf 30 6
+    case 3:
+        capacidadColaClientes = atoi(argv[1]);
+        numCajeros = atoi(argv[2]);
+        break;
+    // Por defecto
+    default:
+        capacidadColaClientes = NUM_CLIENTES_DEFAULT;
+        numCajeros = NUM_CAJEROS_DEFAULT;
+        break;
     }
-    else
+
+    /* Realizamos la estructura sigaction */
+    struct sigaction e, s;
+    e.sa_handler = nuevoCliente;
+    s.sa_handler = exitApp;
+
+    /* Si recibimos por pantalla SIGUSR1 y SIGUSR2 llamaremos a la función nuevoCliente(); */
+    sigaction(SIGUSR1, &e, NULL);
+    sigaction(SIGUSR2, &e, NULL);
+    sigaction(SIGINT, &s, NULL);
+
+    /* ----------------- Inicializamos los recursos ----------------- */
+
+    /* Inicializamos los 2 semáforos */
+    pthread_mutex_init(&mutex_ColaClientes, NULL);
+    pthread_mutex_init(&mutex_Logger, NULL);
+
+    /* Inicializamos el count de clientes */
+    int numClientes = 0;
+
+    /* Inicializamos la lista de clientes */
+
+    for (int i = 0; i < capacidadColaClientes; i++)
     {
-        numCustomers = NUMCLIENTSDEFAULT;
-        numCashiers = NUMCASHIERSDEFAULT;
+        /* Inicializamos los identificadores de los clientes del 1 al 10 */
+        listaClientes[i].idCliente = 0;
+        /* Inicializamos si el vehículo está atendido o no, en este caso pondremos un 0 y el vehículo no estará atendido, si fuera un 1 es que está siendo atendido */
+        listaClientes[i].estaSiendoAtendido = 0;
+        /* Inicializamos si ha finalizado la atención del vehículo, en este caso pondremos un 0 y el vehiculo no habrá finalizado */
+        listaClientes[i].finalizado = 0;
     }
 
-    // estructura sigaction
-    struct sigaction ss;
-
-    // declaramos los campos del sigaction
-    sigemptyset(&ss.sa_mask);
-    ss.sa_flags = 0;
-    ss.sa_handler = manejadoraClientes; // le asignamos su manejadora
-
-    // mensaje de error si falla el sigaction
-    if (-1 == sigaction(SIGUSR1, &ss, NULL))
+    /* Inicializamos la lista de cajeros */
+    for (int i = 0; i < numCajeros; i++)
     {
-        perror("Tecnico sigaction");
-        return 1;
+        /* Inicializamos los identificadores de los cajeros del 0 al numero introducido */
+        cajerosN[i].idCajero = i;
+        /* Inicializamos si el cajero está ocupado o no, en este caso pondremos un 0 y el cajero no estará ocupado */
+        cajerosN[i].ocupado = 0;
+        /* Inicializamos el número de clientes que ha atendido cada cajero */
+        cajerosN[i].clientesAtendidos = 0;
     }
 
-    /* Inicializamos los mutex comprobando si hay error*/
-    /* Inicializamos los mutex comprobando si hay error*/
-    if (pthread_mutex_init(&mutex_Logger, NULL) != 0)
-        exit(-1);
+    logFile = fopen(logFileName, "w");
 
-    if (pthread_mutex_init(&mutex_CustomersOnLine, NULL) != 0)
-        exit(-1);
+    /* Guardamos en el log la apertura de Talleres Manolo */
+    char aperturaLogSuperMercado[100];
+    char superMercado[100];
+    sprintf(superMercado, "Supermercado");
+    sprintf(aperturaLogSuperMercado, "Apertura super");
+    writeLogMessage(superMercado, aperturaLogSuperMercado);
 
-    if (pthread_mutex_init(&mutex_LineCustomers, NULL) != 0)
-        exit(-1);
+    // Inicializamos los cajeros
+    for (int i = 0; i < numCajeros; i++)
+    {
+        pthread_create(&cajerosN[i].hiloCajero, NULL, accionesCajero, (void *)&cajerosN[i].idCajero);
+    }
 
-    /*Variables condicion*/
-    if (pthread_cond_init(&condicionInicia, NULL) != 0)
-        exit(-1);
-    if (pthread_cond_init(&condicionAcaba, NULL) != 0)
-        exit(-1);
-
-    /* contador d
-
-        // /*Si existe el fichero se elimina*/
-    // remove(logFileName);
-
-    // /*Ejemplo basico de uso de la struct*/
-    // struct Cajero cajero1 = {1, true, 0, false};
-
-    // printf("Id cajero: %d\n", cajero1.cajeroID);
-    // printf("Status cajero: %s\n", getBoolean(cajero1.status));
-    // printf("Num clientes atendidos: %d\n", cajero1.numClientesAtendidos);
-    // printf("Is resting: %s\n", getBoolean(cajero1.isResting));
-
-    // writeLogMessage("ID123", "Este es un mensaje de prueba.");
-
-    /**
-     * Uso basico de la lista
-     */
-
-    // Creacion de la lista
-    // struct ListCajero *cajeroLista = createListCajero();
-
-    // struct Cajero cajero2 = {2, false, 3, true};
-
-    // // Adicion de los elementos a la lista
-    // appendCajero(cajeroLista, &cajero1);
-    // appendCajero(cajeroLista, &cajero2);
-    // appendCajero(cajeroLista, &cajero2);
-
-    // // impresion lista actual
-    // printf("Lista actual cajeros:\n");
-    // printListCajero(cajeroLista);
-
-    // pausamos su ejecución a la espera de que ocurra alguna acción
-    pause();
-
-    // return 0;
+    // Esperamos señal SIGUSR
+    while (true)
+    {
+        pause();
+    }
 }
 
 void writeLogMessage(char *id, char *msg)
 {
+    // Bloqueamos el mutex para que no se escriba en el log a la vez
+    pthread_mutex_lock(&mutex_Logger);
+
     // Calculamos la hora actual
     time_t now = time(0);
     struct tm *tlocal = localtime(&now);
@@ -157,28 +195,71 @@ void writeLogMessage(char *id, char *msg)
     logFile = fopen(logFileName, "a");
     fprintf(logFile, "[ %s] %s: %s\n", stnow, id, msg);
     fclose(logFile);
+    pthread_mutex_unlock(&mutex_Logger);
 }
 
 void exitApp(int status)
 {
-    exit(status);
+    char idCajero[100];
+    char clientesAtendidosFrase[100];
+
+    /* Guardamos en el log el total de clientes que ha atendido cada cajero */
+    for (int i = 0; i < numCajeros; i++)
+    {
+        sprintf(idCajero, "cajero_%d ", cajerosN[i].idCajero + 1);
+        sprintf(clientesAtendidosFrase, "He atendido a %d clientes.", cajerosN[i].clientesAtendidos);
+        writeLogMessage(idCajero, clientesAtendidosFrase);
+    }
+
+    /* Guardamos en el log el cierre de Talleres Manolo */
+    char superMercado[100];
+    char cierreSuper[100];
+    sprintf(superMercado, "Supermercado");
+    sprintf(cierreSuper, "Cierre Super.");
+    writeLogMessage(superMercado, cierreSuper);
+
+    /* Finalizamos el programa */
+    signal(SIGINT, SIG_DFL);
+    raise(SIGINT);
 }
 
-const char *getBoolean(bool value)
-{
-    return value ? "true" : "false";
-}
+// const char *getBoolean(bool value)
+// {
+//     return value ? "true" : "false";
+// }
 
-void manejadoraClientes(int signal)
-{
-    printf("Señal de creación de cliente recibida\n");
-    pid_t cliente = fork();
-    printf("Cliente con id %d creado\n", cliente);
-}
+// void manejadoraClientes(int signal)
+// {
+//     printf("Señal de creación de cliente recibida\n");
+//     pid_t cliente = fork();
+//     printf("Cliente con id %d creado\n", cliente);
+// }
 
-int calculaAleatorio(int n, int m)
+int randomNumber(int n, int m)
 {
-    // los numeros aleatorios dependerán del pid
+    // m max | n min
     srand(time(NULL));
     return rand() % (m - n + 1) + n;
+}
+
+int getPosCliente(int idClienteABuscar)
+{
+    for (int i = 0; i < capacidadColaClientes; i++)
+    {
+        if (listaClientes[i].idCliente == idClienteABuscar)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void *accionesCajero(void *idCajero)
+{
+    printf("Cajero %d creado\n", *(int *)idCajero + 1);
+}
+
+void nuevoCliente(int sig)
+{
+    printf("Señal de creación de cliente recibida\n");
 }
