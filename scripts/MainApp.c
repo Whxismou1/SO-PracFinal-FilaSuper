@@ -26,7 +26,10 @@ pthread_mutex_t mutex_ColaClientes;
 // Mutex logger
 pthread_mutex_t mutex_Logger;
 
+//hilo del reponedor 
 pthread_t hiloReponedor;
+
+//condiciones y semáforos para controlar las llamadas del reponedor 
 pthread_mutex_t mutex_CajeroAviso = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condicion_ReponedorAviso = PTHREAD_COND_INITIALIZER;
 int avisoCajero = 0; // Bandera para indicar si el reponedor debe avisar a un cajero
@@ -41,38 +44,53 @@ int numClientes;
 struct clientes
 {
     int idCliente;
+    //0:no, 1:sí 
     int estaSiendoAtendido;
+    //0:no, 1:sí 
     int finalizado;
+
+    //hilo que ejecuta cada cliente
     pthread_t hiloCliente;
 };
 
 // Lista de clientes
 struct clientes listaClientes[20];
 
-/* Función que realiza las acciones de los vehículos */
+/* Función que realiza las acciones de los clientes */
 void *accionesClientes(void *IDCliente);
 
+//cont numero de cajeros
 int numCajeros;
 
 /* Lista de 3 cajeros */
 struct cajeros
 {
     int idCajero;
+    //0:no, 1:sí 
     int ocupado;
+    //numero de clientes que lleva atentidos un cajero
     int clientesAtendidos;
     /* Hilo que ejecuta cada cajero */
     pthread_t hiloCajero;
 };
 
+//lista de cajeros
 struct cajeros cajerosN[3];
 
+//capacidad de la fila de clientes
 int capacidadColaClientes;
 
+//funcion que realiza las operaciones del reponedor  
 void *accionesReponedor(void *arg);
+
 /* Función que realiza las acciones de los cajeros */
 void *accionesCajero(void *idCajero);
+
+//funcion manejadora de nuevos clientes
 void nuevoCliente(int sig);
+//funcio manejadora de peticion de salida
 void exitApp();
+
 /*Funcion que escribe en el log*/
 void writeLogMessage(char *id, char *msg);
 int randomNumber(int min, int max);
@@ -109,23 +127,39 @@ int main(int argc, char *argv[])
     printf("\n\n----------------------------------------------- SUPERMECADO -----------------------------------------------\n\n");
     printf("Supermercado abierto con %d clientes, %d cajeros.\n", capacidadColaClientes, numCajeros);
     // printf("Si ha inicializado el programa con './PracticaFinal &' podrá simular la entrada de vehículos.\n");
-    printf("Introduzca 'kill -10 PID' en el terminal si desea introducir en el taller un vehículo con avería de motor.\n");
+    printf("Introduzca 'kill -10 PID' desde otro terminal si desea introducir en el supermercado un nuevo cliente.\n");
     printf("Introduzca 'kill -2 PID' si desea finalizar el programa.\n");
     printf("Pulse intro para continuar...\n");
 
-    /* Realizamos la estructura sigaction */
+    /* Realizamos la estructura sigaction y declaramos sus campos */
     struct sigaction e, s;
+    sigemptyset(&&e.sa_mask);
+    sigemptyset(&&s.sa_mask);
+    e.sa_flags=0;
+    s.sa_flags=0;
+    //asignamos sus manejadoras
     e.sa_handler = nuevoCliente;
     s.sa_handler = exitApp;
 
     /* Si recibimos por pantalla SIGUSR1 y SIGUSR2 llamaremos a la función nuevoCliente(); */
-    sigaction(SIGUSR1, &e, NULL);
-    sigaction(SIGUSR2, &e, NULL);
-    sigaction(SIGINT, &s, NULL);
+    if(-1==sigaction(SIGUSR1, &e, NULL)){
+        perror("error sigaction nuevoCliente");
+        return 1;
+    }
+    if(-1==sigaction(SIGUSR2, &e, NULL)){
+        perror("error sigaction nuevoCliente");
+        return 1;
+    }
+
+    //si recibimos la señal SIGINT se finaliza el programa
+    if(sigaction(SIGINT, &s, NULL)){
+        perror("error en el sigaction de exit");
+        return 1;
+    }
 
     /* ----------------- Inicializamos los recursos ----------------- */
 
-    /* Inicializamos los 2 semáforos */
+    /* Inicializamos los semáforos */
     if (pthread_mutex_init(&mutex_ColaClientes, NULL) != 0)
         exit(-1);
     if (pthread_mutex_init(&mutex_Logger, NULL) != 0)
@@ -150,9 +184,9 @@ int main(int argc, char *argv[])
     {
         /* Inicializamos los identificadores de los clientes del 1 al 10 */
         listaClientes[i].idCliente = 0;
-        /* Inicializamos si el vehículo está atendido o no, en este caso pondremos un 0 y el vehículo no estará atendido, si fuera un 1 es que está siendo atendido */
+        /* Inicializamos si el cliente está atendido o no, en este caso pondremos un 0 y el cliente no estará atendido, si fuera un 1 es que está siendo atendido */
         listaClientes[i].estaSiendoAtendido = 0;
-        /* Inicializamos si ha finalizado la atención del vehículo, en este caso pondremos un 0 y el vehiculo no habrá finalizado */
+        /* Inicializamos si ha finalizado la atención del cliente, en este caso pondremos un 0 y el cliente no habrá finalizado */
         listaClientes[i].finalizado = 0;
     }
 
@@ -169,7 +203,7 @@ int main(int argc, char *argv[])
 
     logFile = fopen(logFileName, "w");
 
-    /* Guardamos en el log la apertura de Talleres Manolo */
+    /* Guardamos en el log la apertura del Super */
     char aperturaLogSuperMercado[100];
     char superMercado[100];
     sprintf(superMercado, "Supermercado");
@@ -185,12 +219,13 @@ int main(int argc, char *argv[])
         }
     }
 
+    //inicializamos al reponedor
     if (pthread_create(&hiloReponedor, NULL, accionesReponedor, NULL) != 0)
     {
         exit(-1);
     }
 
-    // Esperamos señal SIGUSR
+    // Esperamos señales
     while (true)
     {
         pause();
@@ -258,6 +293,8 @@ int getPosCliente(int idClienteABuscar)
     return -1;
 }
 
+
+//funcion que lleva a cabo las acciones de los cajeros
 void *accionesCajero(void *idCajero)
 {
     printf("Cajero %d creado\n", *(int *)idCajero + 1);
@@ -361,16 +398,18 @@ void *accionesCajero(void *idCajero)
     pthread_exit(NULL);
 }
 
+
+//funcion manejadora 
 void nuevoCliente(int sig)
 {
-    /* Bloqueamos para evitar que entren 2 vehículos a la vez */
+    /* Bloqueamos para evitar que entren 2 clientes a la vez */
     pthread_mutex_lock(&mutex_ColaClientes);
 
     int i = 0;
     int posicionVacia = -1;
 
     // Buscamos una posición vacía en la lista de clientes
-    while (i < 10)
+    while (i < 20)
     {
         if (listaClientes[i].idCliente == 0)
         {
@@ -405,6 +444,8 @@ void nuevoCliente(int sig)
     pthread_mutex_unlock(&mutex_ColaClientes);
 }
 
+
+//funcion que lleva a cabo las acciones de los clientes
 void *accionesClientes(void *idCliente)
 {
     /* Pasamos a entero el puntero *idCliente */
