@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <signal.h>
 #include <pthread.h>
 #include <sys/types.h>
@@ -7,6 +8,7 @@
 #include <syslog.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include "ListInterface.h"
 
 #define NUM_CLIENTES_DEFAULT 20
@@ -124,13 +126,17 @@ int main(int argc, char *argv[])
         break;
     }
 
+    srand(getpid());
+    logFile = fopen(logFileName, "w");
 
+    fclose(logFile);
 
     /* Realizamos la estructura sigaction y declaramos sus campos */
-    struct sigaction e={0};
-    e.sa_handler = nuevoCliente;
+    struct sigaction ss;
+    ss.sa_handler = nuevoCliente;
+    ss.sa_flags=0;
     /* Si recibimos por pantalla SIGUSR1 y SIGUSR2 llamaremos a la función nuevoCliente(); */
-    if(-1==sigaction(SIGUSR1, &e, NULL)){
+    if(-1==sigaction(SIGUSR1, &ss, NULL)){
         perror("error sigaction nuevoCliente");
         exit(-1);
     }
@@ -147,19 +153,11 @@ int main(int argc, char *argv[])
     printf("\n\n----------------------------------------------- SUPERMECADO -----------------------------------------------\n\n");
     printf("Supermercado abierto con %d clientes, %d cajeros.\n", capacidadColaClientes, numCajeros);
     // printf("Si ha inicializado el programa con './PracticaFinal &' podrá simular la entrada de vehículos.\n");
-    printf("Introduzca 'kill -10 PID' desde otro terminal si desea introducir en el supermercado un nuevo cliente.\n");
-    printf("Introduzca 'kill -2 PID' si desea finalizar el programa.\n");
+    printf("Introduzca 'kill -10 %d' desde otro terminal si desea introducir en el supermercado un nuevo cliente.\n", getpid());
+    printf("Introduzca 'kill -2 %d' si desea finalizar el programa.\n", getpid());
     printf("Pulse intro para continuar...\n");
 
-    
 
-    
-    /* if(-1==sigaction(SIGUSR2, &e, NULL)){
-        perror("error sigaction nuevoCliente");
-        return 1;
-    } */
-
-    
 
     /* ----------------- Inicializamos los recursos ----------------- */
 
@@ -205,7 +203,6 @@ int main(int argc, char *argv[])
         cajerosN[i].clientesAtendidos = 0;
     }
 
-    logFile = fopen(logFileName, "w");
 
     /* Guardamos en el log la apertura del Super */
     char aperturaLogSuperMercado[100];
@@ -230,7 +227,7 @@ int main(int argc, char *argv[])
     }
 
     // Esperamos señales
-    while (true)
+    while (1)
     {
         pause();
     }
@@ -238,26 +235,61 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void writeLogMessage(char *id, char *msg)
-{
-    // Bloqueamos el mutex para que no se escriba en el log a la vez
-    pthread_mutex_lock(&mutex_Logger);
 
-    // Calculamos la hora actual
-    time_t now = time(0);
-    struct tm *tlocal = localtime(&now);
-    char stnow[25];
-    strftime(stnow, 25, " %d/ %m/ %y %H: %M: %S", tlocal);
-    // Escribimos en el log
-    logFile = fopen(logFileName, "a");
-    fprintf(logFile, "[ %s] %s: %s\n", stnow, id, msg);
-    fclose(logFile);
-    pthread_mutex_unlock(&mutex_Logger);
+//funcion manejadora 
+void nuevoCliente(int sig){
+    /* Bloqueamos para evitar que entren 2 clientes a la vez */
+
+    printf("nuevo cliente\n");
+
+
+
+    
+    pthread_mutex_lock(&mutex_ColaClientes);
+
+    
+
+    int i = 0;
+    int posicionVacia = -1;
+
+    // Buscamos una posición vacía en la lista de clientes
+    while (i < 20){
+        if (listaClientes[i].idCliente == 0){
+            posicionVacia = i;
+            break;
+        }
+        i++;
+    }
+
+    // Si encontramos una posición vacía, creamos un nuevo cliente
+    if (posicionVacia != -1){
+        /* Se añade el cliente */
+        numClientes++;
+
+        /* nuevoCliente.id = contador clientes */
+        listaClientes[posicionVacia].idCliente = numClientes;
+
+        /* nuevoCliente.atendido = 0 */
+        listaClientes[posicionVacia].estaSiendoAtendido = 0;
+        printf("Cliente_%d creado", numClientes);
+        /* Creamos el hilo para el cliente */
+        pthread_create(&listaClientes[posicionVacia].hiloCliente, NULL, accionesClientes, (void *)&listaClientes[posicionVacia].idCliente);
+    }
+    // Si no hay espacio, ignoramos la llamada
+    else
+    {
+        /* Ignoramos la llamada */
+
+        printf("no hay hueco en el super para el nuevo cliente\n");
+    }
+
+    /* Desbloqueamos */
+    pthread_mutex_unlock(&mutex_ColaClientes);
 }
 
 void exitApp(int sig){   
 
-    printf("Hasta pronto");
+    printf("Hasta pronto\n");
     char idCajero[100];
     char clientesAtendidosFrase[100];
 
@@ -280,6 +312,26 @@ void exitApp(int sig){
     signal(SIGINT, SIG_DFL);
     raise(SIGINT);
 }
+
+
+
+void writeLogMessage(char *id, char *msg)
+{
+    // Bloqueamos el mutex para que no se escriba en el log a la vez
+    pthread_mutex_lock(&mutex_Logger);
+
+    // Calculamos la hora actual
+    time_t now = time(0);
+    struct tm *tlocal = localtime(&now);
+    char stnow[25];
+    strftime(stnow, 25, " %d/ %m/ %y %H: %M: %S", tlocal);
+    // Escribimos en el log
+    logFile = fopen(logFileName, "a");
+    fprintf(logFile, "[ %s] %s: %s\n", stnow, id, msg);
+    fclose(logFile);
+    pthread_mutex_unlock(&mutex_Logger);
+}
+
 
 int randomNumber(int n, int m)
 {
@@ -425,50 +477,6 @@ void *accionesCajero(void *idCajero){
 }
 
 
-//funcion manejadora 
-void nuevoCliente(int sig){
-    /* Bloqueamos para evitar que entren 2 clientes a la vez */
-
-    printf("ey");
-    pthread_mutex_lock(&mutex_ColaClientes);
-
-    
-
-    int i = 0;
-    int posicionVacia = -1;
-
-    // Buscamos una posición vacía en la lista de clientes
-    while (i < 20){
-        if (listaClientes[i].idCliente == 0){
-            posicionVacia = i;
-            break;
-        }
-        i++;
-    }
-
-    // Si encontramos una posición vacía, creamos un nuevo cliente
-    if (posicionVacia != -1){
-        /* Se añade el cliente */
-        numClientes++;
-
-        /* nuevoCliente.id = contador clientes */
-        listaClientes[posicionVacia].idCliente = numClientes;
-
-        /* nuevoCliente.atendido = 0 */
-        listaClientes[posicionVacia].estaSiendoAtendido = 0;
-        printf("Cliente_%d creado", numClientes);
-        /* Creamos el hilo para el cliente */
-        pthread_create(&listaClientes[posicionVacia].hiloCliente, NULL, accionesClientes, (void *)listaClientes[posicionVacia].idCliente);
-    }
-    // Si no hay espacio, ignoramos la llamada
-    else
-    {
-        /* Ignoramos la llamada */
-    }
-
-    /* Desbloqueamos */
-    pthread_mutex_unlock(&mutex_ColaClientes);
-}
 
 
 //funcion que lleva a cabo las acciones de los clientes
