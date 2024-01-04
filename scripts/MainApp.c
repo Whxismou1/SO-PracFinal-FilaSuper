@@ -278,10 +278,8 @@ void nuevoCliente(int sig){
     if (posicionVacia != -1){
         /* Se añade el cliente */
         numClientes++;
-
         /* nuevoCliente.id = contador clientes */
         listaClientes[posicionVacia].idCliente = numClientes;
-
         /* nuevoCliente.atendido = 0 */
         listaClientes[posicionVacia].estaSiendoAtendido = 0;
         printf("Cliente_%d creado.\n", numClientes);
@@ -314,13 +312,13 @@ void *accionesClientes(void *idCliente){
     sprintf(nuevoCliente, "cliente_%d ", identificadorCliente);
     writeLogMessage(nuevoCliente, entradaCliente);
 
-    /* Dormir entre 1 y 5 segundos (tiempo de espera aleatorio) */
-    int tiempoEspera = randomNumber(1, 5);
-    sleep(tiempoEspera);
+    //espera 10 segundos a ser atendido
+    sleep(10);
 
     /* Comprobamos si el cliente fue atendido por un cajero */
     if (listaClientes[posicion].estaSiendoAtendido == 1){
 
+       
         /* Esperamos a que termine la atención del cajero */
         while (listaClientes[posicion].finalizado == 0){
 
@@ -335,21 +333,37 @@ void *accionesClientes(void *idCliente){
         writeLogMessage(nuevoCliente, salidaCliente);
 
         /* Borramos la información del cliente de la lista */
+        pthread_mutex_lock(&mutex_Clientes);
         listaClientes[posicion].estaSiendoAtendido = 0;
         listaClientes[posicion].idCliente = 0;
         listaClientes[posicion].finalizado = 0;
+        pthread_mutex_unlock(&mutex_Clientes);
     }else{
+        
 
+        int aleatorio=randomNumber(1,100);
+
+        //caso1: en el 10% de los casos después de 10 segundos abandonan el super
+        if(aleatorio<=10){
         /* Cliente no atendido en el tiempo de espera, abandona el supermercado */
         char abandonaSupermercado[100];
-        sprintf(abandonaSupermercado, "Abandona el supermercado porque no ha sido atendido.");
-        printf("El cliente_%d abandona el supermercado.\n", identificadorCliente);
+        sprintf(abandonaSupermercado, "Abandona el supermercado porque se ha cansado de esperar.");
+        printf("El cliente_%d abandona el supermercado porque se ha cansado de esperar.\n", identificadorCliente);
         writeLogMessage(nuevoCliente, abandonaSupermercado);
 
         /* Borramos la información del cliente de la lista */
+        pthread_mutex_lock(&mutex_Clientes);
         listaClientes[posicion].estaSiendoAtendido = 0;
         listaClientes[posicion].idCliente = 0;
         listaClientes[posicion].finalizado = 0;
+        pthread_mutex_unlock(&mutex_Clientes);
+        /* Se da fin al hilo */
+        pthread_exit(NULL);
+        }
+        //caso2: sigue esperando
+        else{
+            //
+        }
     }
 
     /* Se da fin al hilo */
@@ -421,7 +435,7 @@ void *accionesCajero(void *idCajero){
                     }else if (aleatorio >= 96 && aleatorio <= 100){
                         // no puede realizar la compra pq es Mou y se ha gastado todo en su pc :0
                         sprintf(mensajelog, "El cliente_%d  no puede realizar la compra debido a problemas con el pago.", listaClientes[i].idCliente);
-                        printf("El cliente_%d no puede realizar la compra debido a problemas con el pago.\n. ", listaClientes[i].idCliente);
+                        printf("El cliente_%d no puede realizar la compra debido a problemas con el pago.\n", listaClientes[i].idCliente);
 
                         
                     //tercer caso: 70 % de que se pueda realizar la compra correctamente
