@@ -48,7 +48,7 @@ int reponedorTerminado = 0;
 // count numero de clientes
 int numClientesTot;
 
-//contador numero de clientes activos en el super
+// contador numero de clientes activos en el super
 int numClientesActuales;
 
 // Estructura cliente
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 
     /* Inicializamos el count de clientes */
     numClientesTot = 0;
-    numClientesActuales=0;
+    numClientesActuales = 0;
 
     // inicializamos la varibale tomandoDescano
     // cogeDescanso=0;
@@ -237,7 +237,8 @@ int main(int argc, char *argv[])
 
     // Inicializamos los cajeros
     for (int i = 0; i < numCajeros; i++)
-    {   srand(time(NULL));
+    {
+        srand(time(NULL));
         if (pthread_create(&cajerosN[i].hiloCajero, NULL, accionesCajero, (void *)&cajerosN[i].idCajero) != 0)
         {
             exit(-1);
@@ -262,19 +263,25 @@ int main(int argc, char *argv[])
 }
 
 // funcion manejadora
-void nuevoCliente(int sig){
+void nuevoCliente(int sig)
+{
     printf("Nuevo cliente ha entrado al super, hay %d clientes actualmente en el super.\n", numClientesActuales);
     /* Bloqueamos para evitar que entren 2 clientes a la vez */
-    //printf("Nuevo cliente en el super, actualmente hay %d clientes en el super.\n", numClientes);
-    if(numClientesActuales>=capacidadColaClientes){
+    // printf("Nuevo cliente en el super, actualmente hay %d clientes en el super.\n", numClientes);
+    if (numClientesActuales >= capacidadColaClientes)
+    {
         printf("El cliente nuevo ha tenido que marchar, el supermercado estaba lleno.\n");
-    }else{
+    }
+    else
+    {
         pthread_mutex_lock(&mutex_ColaClientes);
         int i = 0;
         int posicionVacia = -1;
         // Buscamos una posición vacía en la lista de clientes
-        while (i < capacidadColaClientes){
-            if (listaClientes[i].idCliente == 0){
+        while (i < capacidadColaClientes)
+        {
+            if (listaClientes[i].idCliente == 0)
+            {
                 posicionVacia = i;
                 break;
             }
@@ -282,7 +289,8 @@ void nuevoCliente(int sig){
         }
 
         // Si encontramos una posición vacía, creamos un nuevo cliente
-        if (posicionVacia != -1){
+        if (posicionVacia != -1)
+        {
             /* Se añade el cliente */
             numClientesTot++;
             /* nuevoCliente.id = contador clientes */
@@ -294,8 +302,8 @@ void nuevoCliente(int sig){
             /* Guardar en el log la hora de entrada del cliente en el supermercado */
             char entradaCliente[100];
             sprintf(entradaCliente, "Entra en el supermercado.");
-            //printf("El cliente_%d entra en el supermercado.\n", identificadorCliente);
-            //printf("Hay %d clientes actualmente en el super.\n", numClientesActuales);
+            // printf("El cliente_%d entra en el supermercado.\n", identificadorCliente);
+            // printf("Hay %d clientes actualmente en el super.\n", numClientesActuales);
             char nuevoCliente[100];
             sprintf(nuevoCliente, "cliente_%d ", listaClientes[posicionVacia].idCliente);
             writeLogMessage(nuevoCliente, entradaCliente);
@@ -304,19 +312,20 @@ void nuevoCliente(int sig){
             pthread_create(&listaClientes[posicionVacia].hiloCliente, NULL, accionesClientes, (void *)&listaClientes[posicionVacia].idCliente);
         }
         // Si no hay espacio, ignoramos la llamada
-        else{
-        /* Ignoramos la llamada */
+        else
+        {
+            /* Ignoramos la llamada */
             printf("No hay hueco en el super para el nuevo cliente\n");
-            }
+        }
 
         /* Desbloqueamos */
         pthread_mutex_unlock(&mutex_ColaClientes);
     }
-    
 }
 
 // funcion que lleva a cabo las acciones de los clientes
-void *accionesClientes(void *idCliente){
+void *accionesClientes(void *idCliente)
+{
 
     /* Pasamos a entero el puntero *idCliente */
     pthread_mutex_lock(&mutex_Clientes);
@@ -327,11 +336,13 @@ void *accionesClientes(void *idCliente){
     char nuevoCliente[100];
     sprintf(nuevoCliente, "cliente_%d ", identificadorCliente);
 
-    if(listaClientes[posicion].estaSiendoAtendido==0 && listaClientes[posicion].finalizado==0){
+    if (listaClientes[posicion].estaSiendoAtendido == 0 && listaClientes[posicion].finalizado == 0)
+    {
         pthread_mutex_lock(&mutex_Clientes);
         srand(time(NULL));
         // caso1: en el 10% de los casos después de 10 segundos abandonan el super
-        if (randomNumber(1,100) <= 10){
+        if (randomNumber(1, 100) <= 10)
+        {
             /* Cliente no atendido en el tiempo de espera, abandona el supermercado */
             char abandonaSupermercado[100];
             sprintf(abandonaSupermercado, "Abandona el supermercado porque se ha cansado de esperar.");
@@ -339,7 +350,7 @@ void *accionesClientes(void *idCliente){
             writeLogMessage(nuevoCliente, abandonaSupermercado);
 
             /* Borramos la información del cliente de la lista */
-            //pthread_mutex_lock(&mutex_Clientes);
+            // pthread_mutex_lock(&mutex_Clientes);
             listaClientes[posicion].estaSiendoAtendido = 0;
             listaClientes[posicion].idCliente = 0;
             listaClientes[posicion].finalizado = 0;
@@ -349,16 +360,16 @@ void *accionesClientes(void *idCliente){
             pthread_exit(NULL);
         }
         // caso2: sigue esperando
-        else{
+        else
+        {
             //
             pthread_mutex_unlock(&mutex_Clientes);
         }
-        
-
     }
 
     /* Comprobamos si el cliente fue atendido por un cajero */
-    if (listaClientes[posicion].estaSiendoAtendido == 1){
+    if (listaClientes[posicion].estaSiendoAtendido == 1)
+    {
 
         /* Esperamos a que termine la atención del cajero */
         while (listaClientes[posicion].finalizado == 0)
@@ -366,7 +377,7 @@ void *accionesClientes(void *idCliente){
 
             // Esperamos
             // pthread_mutex_unlock(&mutex_Clientes);
-            //usleep(10000);
+            // usleep(10000);
             // pthread_mutex_lock(&mutex_Clientes);
         }
 
@@ -420,130 +431,141 @@ void *accionesCajero(void *idCajero)
         srand(time(NULL));
         int indice;
         /* Mientras el cajero este libre */
-        //while (cajerosN[identificadorCajero].ocupado == 0)
+        // while (cajerosN[identificadorCajero].ocupado == 0)
         //{
-            /* Bloqueamos la cola*/
+        /* Bloqueamos la cola*/
 
-            pthread_mutex_lock(&mutex_Clientes);
-            /* Busco el primer cliente para atender, esto es el que más tiempo lleve esperando */
-            /* Recorro una vez la lista para buscar un cliente que su ID sea diferente de 0 y que
-               no haya sido atendido */
-            for (int i = 0; i < capacidadColaClientes; i++)
-            {   
+        pthread_mutex_lock(&mutex_Clientes);
+        /* Busco el primer cliente para atender, esto es el que más tiempo lleve esperando */
+        /* Recorro una vez la lista para buscar un cliente que su ID sea diferente de 0 y que
+           no haya sido atendido */
+        for (int i = 0; i < capacidadColaClientes; i++)
+        {
 
-                identificadorCajero=*(int *)idCajero;
-                sprintf(entradaCajero, "Cajero_%d ", identificadorCajero + 1);
-               // srand(identificadorCajero);
-                if (listaClientes[i].idCliente != 0 && listaClientes[i].estaSiendoAtendido == 0 && listaClientes[i].finalizado == 0 && cajerosN[identificadorCajero].ocupado==0)
-                {   
-                    
-                    cajerosN[identificadorCajero].ocupado=1;
-                    cajerosN[identificadorCajero].clientesAtendidos++;
+            identificadorCajero = *(int *)idCajero;
+            sprintf(entradaCajero, "Cajero_%d ", identificadorCajero + 1);
+            // srand(identificadorCajero);
+            if (listaClientes[i].idCliente != 0 && listaClientes[i].estaSiendoAtendido == 0 && listaClientes[i].finalizado == 0 && cajerosN[identificadorCajero].ocupado == 0)
+            {
 
-                    clienteAtendido = listaClientes[i].idCliente;
-                    indice = i;
-                    /* Cambiamos el flag de atendido */
-                    listaClientes[i].estaSiendoAtendido = 1;
-                    /* Ponemos que el cajero está ocupado */
-                    //cajerosN[identificadorCajero].ocupado = 1;
+                cajerosN[identificadorCajero].ocupado = 1;
+                cajerosN[identificadorCajero].clientesAtendidos++;
 
-                    // calculamos el tiempo que tarda en atender al cliente y esperamos ese tiempo
-                    int tiempoAtendido = randomNumber(1, 5);
-                    sleep(tiempoAtendido);
+                clienteAtendido = listaClientes[i].idCliente;
+                indice = i;
+                /* Cambiamos el flag de atendido */
+                listaClientes[i].estaSiendoAtendido = 1;
+                /* Ponemos que el cajero está ocupado */
+                // cajerosN[identificadorCajero].ocupado = 1;
 
-                    srand(identificadorCajero);
-                    // calculamos un numero aleatorio entre 1 y 100, que representa qué ocurre en el cajero
-                    int aleatorio = randomNumber(1, 100);
+                // calculamos el tiempo que tarda en atender al cliente y esperamos ese tiempo
+                int tiempoAtendido = randomNumber(1, 5);
+                sleep(tiempoAtendido);
 
-                    // primer caso: 25 % de que haya algún problema con el precio y haya que llamar al reponedor
-                    if (aleatorio >= 71 && aleatorio <= 95)
+                srand(identificadorCajero);
+                // calculamos un numero aleatorio entre 1 y 100, que representa qué ocurre en el cajero
+                int aleatorio = randomNumber(1, 100);
+
+                // primer caso: 25 % de que haya algún problema con el precio y haya que llamar al reponedor
+                if (aleatorio >= 71 && aleatorio <= 95)
+                {
+
+                    sprintf(mensajelog, "Ha habido un problema con el precio y ha habido que llamar al reponedor.");
+                    printf("Ha habido un problema con el precio y ha habido que llamar al reponedor.\n");
+                    // avisarReponedor();
+                    // Lógica para avisar al reponedor
+                    pthread_mutex_lock(&mutex_CajeroAviso);
+                    avisoCajero = 1;
+                    pthread_cond_signal(&condicion_ReponedorAviso);
+                    pthread_mutex_unlock(&mutex_CajeroAviso);
+
+                    // Esperar a que el reponedor termine su trabajo
+                    pthread_mutex_lock(&mutex_ReponedorTerminado);
+                    while (reponedorTerminado == 0)
                     {
-
-                        sprintf(mensajelog, "Ha habido un problema con el precio y ha habido que llamar al reponedor.");
-                        printf("Ha habido un problema con el precio y ha habido que llamar al reponedor.\n");
-                        // avisarReponedor();
-
-                        // segundo caso: 5% de que haya algún problema y no pueda realizar la compra (no tenga dinero, no funcione su tarjeta,etc)
+                        pthread_cond_wait(&condicion_ReponedorTerminado, &mutex_ReponedorTerminado);
                     }
-                    else if (aleatorio >= 96 && aleatorio <= 100)
-                    {
-                        // no puede realizar la compra pq es Mou y se ha gastado todo en su pc :0
-                        sprintf(mensajelog, "El cliente_%d  no puede realizar la compra debido a problemas con el pago.", listaClientes[i].idCliente);
-                        printf("El cliente_%d no puede realizar la compra debido a problemas con el pago.\n", listaClientes[i].idCliente);
-
-                        // tercer caso: 70 % de que se pueda realizar la compra correctamente
-                    }
-                    else
-                    {
-                        sprintf(mensajelog, "El cliente_%d  realiza la compra sin ningún problema.", listaClientes[i].idCliente);
-                        printf("El cliente_%d realiza la compra sin ningún problema.\n", listaClientes[i].idCliente);
-                    }
-
-                    printf("El cliente_%d ha sido atendido correctamente por el cajero_%d.\n", listaClientes[i].idCliente, identificadorCajero+1);
-                    sprintf(message, "El cliente_%d ha sido atendido correctamente.", listaClientes[i].idCliente);
-                    writeLogMessage(entradaCajero, message);
-
-                    // escribimos el precio de la compra en el log
-                    // calculamos el importe de su compra
-                    int importe = randomNumber(1, 100);
-                    sprintf(mensajeImporte, "Al cliente_%d le cuesta la compra un importe de %d.", listaClientes[i].idCliente, importe);
-                    writeLogMessage(entradaCajero, mensajeImporte);
-
-                    // escribimos qué ha pasado en el cajero
-                    writeLogMessage(entradaCajero, mensajelog);
-
-                    // pthread_mutex_lock(&mutex_Clientes);
-                    // se cambia el flag de finalizado
-                    listaClientes[i].finalizado = 1;
-
-                    // se desbloquea el mutex de la cola de clientes
-                    pthread_mutex_unlock(&mutex_Clientes);
-
-                    // se suma uno al numero de clientes atendidos por el cajero
-                    //cajerosN[identificadorCajero].clientesAtendidos += 1;
-
-                    // se comprueba que el cajero se tenga que coger el descanso
-
-                    if (cajerosN[identificadorCajero].clientesAtendidos % 10 == 0)
-                    {
-                        // pthread_mutex_lock(&mutexDescanso);
-
-                        /* Se registra el descanso */
-                        sprintf(cogerDescanso, "Le toca coger descanso.");
-                        writeLogMessage(entradaCajero, cogerDescanso);
-
-                        printf("El cajero_%d se coge el descanso.\n", identificadorCajero + 1);
-
-                        /* Duerme 20 segundos */
-                        sleep(20);
-
-                        /* Se registra el descanso */
-                        sprintf(llegarDelDescanso, "Vuelve de coger el descanso.");
-                        writeLogMessage(entradaCajero, llegarDelDescanso);
-
-                        printf("El cajero_%d vuelve de coger el descanso.\n", identificadorCajero + 1);
-                        //cajerosN[identificadorCajero].ocupado = 0;
-
-                        // pthread_mutex_unlock(&mutexDescanso);
-                    }
-
-                    // se libera al cajero
-                    //cajerosN[identificadorCajero].ocupado = 0;
+                    reponedorTerminado = 0;
+                    pthread_mutex_unlock(&mutex_ReponedorTerminado);
+                    // segundo caso: 5% de que haya algún problema y no pueda realizar la compra (no tenga dinero, no funcione su tarjeta,etc)
                 }
-                 //pthread_mutex_unlock(&mutex_Clientes);
-            }
+                else if (aleatorio >= 96 && aleatorio <= 100)
+                {
+                    // no puede realizar la compra pq es Mou y se ha gastado todo en su pc :0
+                    sprintf(mensajelog, "El cliente_%d  no puede realizar la compra debido a problemas con el pago.", listaClientes[i].idCliente);
+                    printf("El cliente_%d no puede realizar la compra debido a problemas con el pago.\n", listaClientes[i].idCliente);
 
-            // libera el mutex en caso de que no encuentre ningun cliente
-            pthread_mutex_unlock(&mutex_Clientes);
-            // se libera al cajero
-            cajerosN[identificadorCajero].ocupado = 0;
+                    // tercer caso: 70 % de que se pueda realizar la compra correctamente
+                }
+                else
+                {
+                    sprintf(mensajelog, "El cliente_%d  realiza la compra sin ningún problema.", listaClientes[i].idCliente);
+                    printf("El cliente_%d realiza la compra sin ningún problema.\n", listaClientes[i].idCliente);
+                }
+
+                printf("El cliente_%d ha sido atendido correctamente por el cajero_%d.\n", listaClientes[i].idCliente, identificadorCajero + 1);
+                sprintf(message, "El cliente_%d ha sido atendido correctamente.", listaClientes[i].idCliente);
+                writeLogMessage(entradaCajero, message);
+
+                // escribimos el precio de la compra en el log
+                // calculamos el importe de su compra
+                int importe = randomNumber(1, 100);
+                sprintf(mensajeImporte, "Al cliente_%d le cuesta la compra un importe de %d.", listaClientes[i].idCliente, importe);
+                writeLogMessage(entradaCajero, mensajeImporte);
+
+                // escribimos qué ha pasado en el cajero
+                writeLogMessage(entradaCajero, mensajelog);
+
+                // pthread_mutex_lock(&mutex_Clientes);
+                // se cambia el flag de finalizado
+                listaClientes[i].finalizado = 1;
+
+                // se desbloquea el mutex de la cola de clientes
+                pthread_mutex_unlock(&mutex_Clientes);
+
+                // se suma uno al numero de clientes atendidos por el cajero
+                // cajerosN[identificadorCajero].clientesAtendidos += 1;
+
+                // se comprueba que el cajero se tenga que coger el descanso
+
+                if (cajerosN[identificadorCajero].clientesAtendidos % 10 == 0)
+                {
+                    // pthread_mutex_lock(&mutexDescanso);
+
+                    /* Se registra el descanso */
+                    sprintf(cogerDescanso, "Le toca coger descanso.");
+                    writeLogMessage(entradaCajero, cogerDescanso);
+
+                    printf("El cajero_%d se coge el descanso.\n", identificadorCajero + 1);
+
+                    /* Duerme 20 segundos */
+                    sleep(20);
+
+                    /* Se registra el descanso */
+                    sprintf(llegarDelDescanso, "Vuelve de coger el descanso.");
+                    writeLogMessage(entradaCajero, llegarDelDescanso);
+
+                    printf("El cajero_%d vuelve de coger el descanso.\n", identificadorCajero + 1);
+                    // cajerosN[identificadorCajero].ocupado = 0;
+
+                    // pthread_mutex_unlock(&mutexDescanso);
+                }
+
+                // se libera al cajero
+                // cajerosN[identificadorCajero].ocupado = 0;
+            }
+            // pthread_mutex_unlock(&mutex_Clientes);
         }
 
-        // libera el mutex en caso de que este con otro cliente
-        //pthread_mutex_unlock(&mutex_Clientes);
-        
+        // libera el mutex en caso de que no encuentre ningun cliente
+        pthread_mutex_unlock(&mutex_Clientes);
+        // se libera al cajero
+        cajerosN[identificadorCajero].ocupado = 0;
     }
 
+    // libera el mutex en caso de que este con otro cliente
+    // pthread_mutex_unlock(&mutex_Clientes);
+}
 
 // funcion que lleva a cabo las acciones del reponedor
 void *accionesReponedor(void *arg)
