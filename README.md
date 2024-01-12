@@ -8,7 +8,7 @@ Practica final de la asignatura de SO de 2º de Ingenieria Informatica
 <h2>Compilacion & Ejecucion</h2>
 
 ```
-    gcc MainApp.c ListImpl.c -o programa
+    gcc MainApp.c -o programa
 
     ./programa
 
